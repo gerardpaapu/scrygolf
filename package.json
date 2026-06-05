@@ -1,0 +1,21 @@
+{
+  "name": "scrygolf",
+  "version": "1.0.0",
+  "description": "Scrygolf is a code golf style alternative syntax for querying scryfall.",
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^25.9.1",
+    "eslint": "^10.4.1",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.60.1",
+    "unicode-emoji-json": "^0.9.0",
+    "vitest": "^4.1.8"
+  }
+}
