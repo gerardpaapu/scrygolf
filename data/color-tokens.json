@@ -1,1 +1,7 @@
-{"red":"❤️","green":"💚","blue":"💙","black":"🖤","white":"🤍"}
+{
+  "❤️": "red",
+  "💚": "green",
+  "💙": "blue",
+  "🖤": "black",
+  "🤍": "white"
+}

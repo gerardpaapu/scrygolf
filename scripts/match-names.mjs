@@ -86,18 +86,18 @@ for (const [emoji, words] of emojiToOracle.entries()) {
     step2.set(chosen, emoji);
   }
 }
-
+const creatureTypes = new Set(types.data.map((_) => _.toLocaleLowerCase()));
 const final = new Map();
 const creatures = new Map();
 const colors = new Map();
 for (const [k, v] of step2.entries()) {
-  if (types.data.includes(k)) {
-    creatures.set(k, v);
+  if (creatureTypes.has(k)) {
+    creatures.set(v, k);
     continue;
   }
 
   if (['white', 'blue', 'black', 'red', 'green'].includes(k)) {
-    colors.set(k, v);
+    colors.set(v, k);
     continue;
   }
 
@@ -106,18 +106,18 @@ for (const [k, v] of step2.entries()) {
 
 await fs.writeFile(
   './data/creature-tokens.json',
-  JSON.stringify(Object.fromEntries(creatures), 2, null),
+  JSON.stringify(Object.fromEntries(creatures), null, 2),
   'utf8',
 );
 
 await fs.writeFile(
   './data/color-tokens.json',
-  JSON.stringify(Object.fromEntries(colors), 2, null),
+  JSON.stringify(Object.fromEntries(colors), null, 2),
   'utf8',
 );
 
 await fs.writeFile(
   './data/word-tokens.json',
-  JSON.stringify(Object.fromEntries(final), 2, null),
+  JSON.stringify(Object.fromEntries(final), null, 2),
   'utf8',
 );
