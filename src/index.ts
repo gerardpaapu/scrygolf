@@ -263,7 +263,3 @@ export function compile(input: string) {
   }
   return stack.join(' ');
 }
-
-// const input = await s.text(process.stdin);
-// const result = compile(input);
-// process.stdout.write(`${result}\n`);

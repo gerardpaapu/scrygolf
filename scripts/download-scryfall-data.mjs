@@ -33,6 +33,7 @@ async function downloadOracleData() {
 }
 
 try {
+  await fs.mkdir('data', { recursive: true });
   await downloadCreatureTypes();
   await downloadOracleData();
 } catch (e) {
