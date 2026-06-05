@@ -236,4 +236,4 @@ for (const token of tokens) {
   }
 }
 
-console.log(stack.reverse().join(' '));
+process.stdout.write(stack.reverse().join(' ') + '\n');
