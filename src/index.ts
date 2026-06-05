@@ -149,6 +149,12 @@ function tokenize(source: string): Array<Token> {
 
     // read any number of emoji
     while (i < segments.length && isEmoji(segments[i]!)) {
+      if (segments[i] === '👎') {
+        tokens.push({ type: TokenType.OPERATOE__CONJOIN_NEGATIONS });
+        i++;
+        continue;
+      }
+
       tokens.push({ type: TokenType.EMOJI, value: segments[i]! });
       i++;
     }
@@ -164,76 +170,80 @@ function isEmoji(grapheme: string) {
   return emojiRegex.test(grapheme);
 }
 
-const input = await s.text(process.stdin);
-const tokens = tokenize(input);
-const stack = [] as Array<string>;
-for (const token of tokens) {
-  switch (token.type) {
-    case TokenType.OPERATOR__NEGATE: {
-      let top = stack.pop();
-      stack.push(`-(${top})`);
-      break;
-    }
-
-    case TokenType.OPERATOR__CONJOIN: {
-      let inner = stack.reverse().join(' ');
-      stack.splice(0, stack.length);
-      stack.push(`(${inner})`);
-      break;
-    }
-
-    case TokenType.OPERATOR__DISJOIN: {
-      let inner = stack.reverse().join(' OR ');
-      stack.splice(0, stack.length);
-      stack.push(`(${inner})`);
-      break;
-    }
-
-    case TokenType.OPERATOE__CONJOIN_NEGATIONS: {
-      let inner = stack.reverse().join(' OR ');
-      stack.splice(0, stack.length);
-      stack.push(`-(${inner})`);
-      break;
-    }
-
-    case TokenType.TEXT: {
-      stack.push(token.value);
-      break;
-    }
-
-    case TokenType.DATE_RANGE__TO: {
-      stack.push(`year<=${token.end}`);
-      break;
-    }
-
-    case TokenType.DATE_RANGE__FROM: {
-      stack.push(`year>=${token.start}`);
-      break;
-    }
-
-    case TokenType.DATE_RANGE__BETWEEN: {
-      stack.push(`(year>=${token.start} date<=${token.end})`);
-      break;
-    }
-
-    case TokenType.EMOJI: {
-      let found;
-      if ((found = toCreatureType(token.value))) {
-        stack.push(`type:${found}`);
+export function compile(input: string) {
+  const tokens = tokenize(input);
+  const stack = [] as Array<string>;
+  for (const token of tokens) {
+    switch (token.type) {
+      case TokenType.OPERATOR__NEGATE: {
+        let top = stack.pop();
+        stack.push(`-(${top})`);
         break;
       }
 
-      if ((found = toColor(token.value))) {
-        stack.push(`color:${found}`);
+      case TokenType.OPERATOR__CONJOIN: {
+        let inner = stack.reverse().join(' ');
+        stack.splice(0, stack.length);
+        stack.push(`(${inner})`);
         break;
       }
 
-      if ((found = toOracleWord(token.value))) {
-        stack.push(found);
+      case TokenType.OPERATOR__DISJOIN: {
+        let inner = stack.reverse().join(' OR ');
+        stack.splice(0, stack.length);
+        stack.push(`(${inner})`);
+        break;
       }
-      break;
+
+      case TokenType.OPERATOE__CONJOIN_NEGATIONS: {
+        let inner = stack.reverse().join(' OR ');
+        stack.splice(0, stack.length);
+        stack.push(`-(${inner})`);
+        break;
+      }
+
+      case TokenType.TEXT: {
+        stack.push(token.value);
+        break;
+      }
+
+      case TokenType.DATE_RANGE__TO: {
+        stack.push(`year<=${token.end}`);
+        break;
+      }
+
+      case TokenType.DATE_RANGE__FROM: {
+        stack.push(`year>=${token.start}`);
+        break;
+      }
+
+      case TokenType.DATE_RANGE__BETWEEN: {
+        stack.push(`(year>=${token.start} date<=${token.end})`);
+        break;
+      }
+
+      case TokenType.EMOJI: {
+        let found;
+        if ((found = toCreatureType(token.value))) {
+          stack.push(`type:${found}`);
+          break;
+        }
+
+        if ((found = toColor(token.value))) {
+          stack.push(`color:${found}`);
+          break;
+        }
+
+        if ((found = toOracleWord(token.value))) {
+          stack.push(found);
+        }
+        break;
+      }
     }
   }
+  return stack.join(' ');
 }
 
-process.stdout.write(stack.reverse().join(' ') + '\n');
+// const input = await s.text(process.stdin);
+// const result = compile(input);
+// process.stdout.write(`${result}\n`);
