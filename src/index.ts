@@ -1,7 +1,6 @@
 import creatureTypes from '../data/creature-tokens.json' with { type: 'json' };
 import wordTokens from '../data/word-tokens.json' with { type: 'json' };
 import colorTokens from '../data/color-tokens.json' with { type: 'json' };
-import * as s from 'node:stream/consumers';
 
 function toCreatureType(emoji: string): string | undefined {
   if (emoji in creatureTypes) {
@@ -38,7 +37,8 @@ const TokenType = {
   OPERATOR__NEGATE: 6,
   OPERATOR__CONJOIN: 7,
   OPERATOR__DISJOIN: 8,
-  OPERATOE__CONJOIN_NEGATIONS: 9,
+  OPERATOR__CONJOIN_NEGATIONS: 9,
+  OPERATOR__ART_TAG: 10,
 } as const;
 
 type TokenType = (typeof TokenType)[keyof typeof TokenType];
@@ -59,10 +59,11 @@ type Token =
     }
   | {
       type:
-        | typeof TokenType.OPERATOE__CONJOIN_NEGATIONS
+        | typeof TokenType.OPERATOR__CONJOIN_NEGATIONS
         | typeof TokenType.OPERATOR__CONJOIN
         | typeof TokenType.OPERATOR__DISJOIN
-        | typeof TokenType.OPERATOR__NEGATE;
+        | typeof TokenType.OPERATOR__NEGATE
+        | typeof TokenType.OPERATOR__ART_TAG;
     }
   | {
       type: typeof TokenType.EMOJI | typeof TokenType.TEXT;
@@ -102,7 +103,7 @@ function tokenize(source: string): Array<Token> {
     }
 
     if (segments[i] === '^') {
-      tokens.push({ type: TokenType.OPERATOE__CONJOIN_NEGATIONS });
+      tokens.push({ type: TokenType.OPERATOR__CONJOIN_NEGATIONS });
       i++;
       continue;
     }
@@ -150,7 +151,13 @@ function tokenize(source: string): Array<Token> {
     // read any number of emoji
     while (i < segments.length && isEmoji(segments[i]!)) {
       if (segments[i] === '👎') {
-        tokens.push({ type: TokenType.OPERATOE__CONJOIN_NEGATIONS });
+        tokens.push({ type: TokenType.OPERATOR__CONJOIN_NEGATIONS });
+        i++;
+        continue;
+      }
+
+      if (segments[i] === '🖼️') {
+        tokens.push({ type: TokenType.OPERATOR__ART_TAG });
         i++;
         continue;
       }
@@ -162,12 +169,19 @@ function tokenize(source: string): Array<Token> {
 
   return tokens;
 }
-
+const emojiRegex = /^\p{Extended_Pictographic}|\p{Emoji_Presentation}/u;
 function isEmoji(grapheme: string) {
   // \p{Extended_Pictographic} captures standard emojis,
   // complex emoji sequences (like families/flags), and objects.
-  const emojiRegex = /^\p{Extended_Pictographic}$/u;
   return emojiRegex.test(grapheme);
+}
+
+function unwrap(item: string) {
+  if (item.startsWith('type:')) {
+    return item.slice('type:'.length);
+  }
+
+  return item;
 }
 
 export function compile(input: string) {
@@ -195,10 +209,16 @@ export function compile(input: string) {
         break;
       }
 
-      case TokenType.OPERATOE__CONJOIN_NEGATIONS: {
+      case TokenType.OPERATOR__CONJOIN_NEGATIONS: {
         let inner = stack.reverse().join(' OR ');
         stack.splice(0, stack.length);
         stack.push(`-(${inner})`);
+        break;
+      }
+
+      case TokenType.OPERATOR__ART_TAG: {
+        let inner = unwrap(stack.pop()!);
+        stack.push(`art:${inner}`);
         break;
       }
 
