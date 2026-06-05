@@ -7,7 +7,9 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "test": "vitest"
+    "test": "vitest",
+    "download-scryfall-data": "node ./scripts/download-scryfall-data.js",
+    "build-local-dataset": "node ./scripts/build-local-dataset.js"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

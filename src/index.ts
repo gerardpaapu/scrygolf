@@ -1,6 +1,6 @@
-import creatureTypes from '../data/creature-tokens.json' with { type: 'json' };
-import wordTokens from '../data/word-tokens.json' with { type: 'json' };
-import colorTokens from '../data/color-tokens.json' with { type: 'json' };
+import creatureTypes from './data/creature-tokens.json' with { type: 'json' };
+import wordTokens from './data/word-tokens.json' with { type: 'json' };
+import colorTokens from './data/color-tokens.json' with { type: 'json' };
 
 function toCreatureType(emoji: string): string | undefined {
   if (emoji in creatureTypes) {

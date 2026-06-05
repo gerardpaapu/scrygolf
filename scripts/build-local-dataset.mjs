@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import u from 'unicode-emoji-json/data-by-emoji.json' with { type: 'json' };
 import oracle from '../data/oracle-data.json' with { type: 'json' };
 import types from '../data/creature-types.json' with { type: 'json' };
@@ -105,19 +107,19 @@ for (const [k, v] of step2.entries()) {
 }
 
 await fs.writeFile(
-  './data/creature-tokens.json',
+  '../src/data/creature-tokens.json',
   JSON.stringify(Object.fromEntries(creatures), null, 2),
   'utf8',
 );
 
 await fs.writeFile(
-  './data/color-tokens.json',
+  '../src/data/color-tokens.json',
   JSON.stringify(Object.fromEntries(colors), null, 2),
   'utf8',
 );
 
 await fs.writeFile(
-  './data/word-tokens.json',
+  '../src/data/word-tokens.json',
   JSON.stringify(Object.fromEntries(final), null, 2),
   'utf8',
 );
