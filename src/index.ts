@@ -192,7 +192,7 @@ function isEmoji(grapheme: string) {
   return emojiRegex.test(grapheme);
 }
 
-const StackValueType = {
+const StackItemType = {
   TEXT: 'text',
   CONJUNCTION: 'conjunction',
   DISJUNCTION: 'disjunction',
@@ -201,42 +201,42 @@ const StackValueType = {
   TAGGED: 'tagged',
 } as const;
 
-type StackValueType = (typeof StackValueType)[keyof typeof StackValueType];
+type StackItemType = (typeof StackItemType)[keyof typeof StackItemType];
 
-type StackValue =
-  | { type: typeof StackValueType.TEXT; value: string }
-  | { type: typeof StackValueType.CONJUNCTION; value: StackValue[] }
-  | { type: typeof StackValueType.DISJUNCTION; value: StackValue[] }
-  | { type: typeof StackValueType.NEGATION; value: StackValue }
-  | { type: typeof StackValueType.DATE_RANGE; value: string }
-  | { type: typeof StackValueType.TAGGED; tag: string; value: StackValue };
+type StackItem =
+  | { type: typeof StackItemType.TEXT; value: string }
+  | { type: typeof StackItemType.CONJUNCTION; value: StackItem[] }
+  | { type: typeof StackItemType.DISJUNCTION; value: StackItem[] }
+  | { type: typeof StackItemType.NEGATION; value: StackItem }
+  | { type: typeof StackItemType.DATE_RANGE; value: string }
+  | { type: typeof StackItemType.TAGGED; tag: string; value: StackItem };
 
-function text(value: string): StackValue {
-  return { type: StackValueType.TEXT, value };
+function text(value: string): StackItem {
+  return { type: StackItemType.TEXT, value };
 }
 
-function conjunction(value: StackValue[]): StackValue {
-  return { type: StackValueType.CONJUNCTION, value };
+function conjunction(value: StackItem[]): StackItem {
+  return { type: StackItemType.CONJUNCTION, value };
 }
 
-function disjunction(value: StackValue[]): StackValue {
-  return { type: StackValueType.DISJUNCTION, value };
+function disjunction(value: StackItem[]): StackItem {
+  return { type: StackItemType.DISJUNCTION, value };
 }
 
-function negation(value: StackValue): StackValue {
-  return { type: StackValueType.NEGATION, value };
+function negation(value: StackItem): StackItem {
+  return { type: StackItemType.NEGATION, value };
 }
 
-function dateRange(value: string): StackValue {
-  return { type: StackValueType.DATE_RANGE, value };
+function dateRange(value: string): StackItem {
+  return { type: StackItemType.DATE_RANGE, value };
 }
 
-function tagged(tag: string, value: StackValue): StackValue {
-  return { type: StackValueType.TAGGED, tag, value };
+function tagged(tag: string, value: StackItem): StackItem {
+  return { type: StackItemType.TAGGED, tag, value };
 }
 
-function tagWith(v: StackValue, tag: string): StackValue {
-  if (v.type === StackValueType.TAGGED) {
+function tagWith(v: StackItem, tag: string): StackItem {
+  if (v.type === StackItemType.TAGGED) {
     if (v.tag === 'type' || v.tag === 'color') {
       // we just erase 'type' and 'color'
       return tagged(tag, v.value);
@@ -245,19 +245,19 @@ function tagWith(v: StackValue, tag: string): StackValue {
     return conjunction([tagged(tag, text(v.tag)), tagged(tag, v.value)]);
   }
 
-  if (v.type === StackValueType.NEGATION) {
+  if (v.type === StackItemType.NEGATION) {
     return negation(tagWith(v.value, tag));
   }
 
-  if (v.type === StackValueType.CONJUNCTION) {
+  if (v.type === StackItemType.CONJUNCTION) {
     return conjunction(v.value.map((_) => tagWith(_, tag)));
   }
 
-  if (v.type === StackValueType.DISJUNCTION) {
+  if (v.type === StackItemType.DISJUNCTION) {
     return disjunction(v.value.map((_) => tagWith(_, tag)));
   }
 
-  if (v.type === StackValueType.DATE_RANGE) {
+  if (v.type === StackItemType.DATE_RANGE) {
     // we can't tag a date range so we just drop the tag silently
     return v;
   }
@@ -267,7 +267,7 @@ function tagWith(v: StackValue, tag: string): StackValue {
 
 export function compile(input: string) {
   const tokens = tokenize(input);
-  const stack = [] as Array<StackValue>;
+  const stack = [] as Array<StackItem>;
   for (const token of tokens) {
     switch (token.type) {
       case TokenType.OPERATOR__NEGATE: {
@@ -388,32 +388,32 @@ export function compile(input: string) {
   return stringify(stack);
 }
 
-function stringify(stack: Array<StackValue>): string {
+function stringify(stack: Array<StackItem>): string {
   return stack.map(stringifyValue).join(' ');
 }
 
-function stringifyValue(item: StackValue): string {
+function stringifyValue(item: StackItem): string {
   switch (item.type) {
-    case StackValueType.TEXT:
+    case StackItemType.TEXT:
       return item.value;
 
-    case StackValueType.CONJUNCTION:
+    case StackItemType.CONJUNCTION:
       return `(${item.value.map(stringifyValue).toReversed().join(' ')})`;
 
-    case StackValueType.DISJUNCTION:
+    case StackItemType.DISJUNCTION:
       return `(${item.value.map(stringifyValue).toReversed().join(' OR ')})`;
 
-    case StackValueType.TAGGED:
+    case StackItemType.TAGGED:
       if (item.tag === 'oracle') {
         return `fo:${stringifyValue(item.value)}`;
       }
 
       return `${item.tag}:${stringifyValue(item.value)}`;
 
-    case StackValueType.DATE_RANGE:
+    case StackItemType.DATE_RANGE:
       return `${item.value}`;
 
-    case StackValueType.NEGATION:
+    case StackItemType.NEGATION:
       return `-${stringifyValue(item.value)}`;
   }
 }
