@@ -31,4 +31,10 @@ describe('unwrap', () => {
   it('wraps unknown prefixes as a quoted phrase', () => {
     expect(compile('🐻🖼️🖼️')).toBe('(art:bear art:art)');
   });
+
+  it('wraps unknown prefixes as a quoted phrase', () => {
+    expect(compile('👴🔮')).toBe('fo:old');
+
+    expect(compile('👴🔮🖼️')).toBe('(art:old art:oracle)');
+  });
 });

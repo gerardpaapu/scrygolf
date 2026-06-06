@@ -379,7 +379,7 @@ export function compile(input: string) {
         }
 
         if ((found = toOracleWord(token.value))) {
-          stack.push(tagged('oracle', text(found)));
+          stack.push(text(found));
         }
         break;
       }
