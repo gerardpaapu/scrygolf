@@ -192,53 +192,77 @@ function isEmoji(grapheme: string) {
   return emojiRegex.test(grapheme);
 }
 
-const TagType = {
-  TAG_ART: 1,
-  TAG_ARTIST: 2,
-  TAG_ORACLE: 3,
-  TAG_TYPE: 4,
-  TAG_COLOR: 5,
+const StackValueType = {
+  TEXT: 'text',
+  CONJUNCTION: 'conjunction',
+  DISJUNCTION: 'disjunction',
+  NEGATION: 'negation',
+  DATE_RANGE: 'date-range',
+  TAGGED: 'tagged',
 } as const;
 
-type TagType = (typeof TagType)[keyof typeof TagType];
+type StackValueType = (typeof StackValueType)[keyof typeof StackValueType];
 
 type StackValue =
-  | { type: 'text'; value: string }
-  | { type: 'conjunct'; value: StackValue[] }
-  | { type: 'disjunct'; value: StackValue[] }
-  | { type: 'negation'; value: StackValue }
-  | { type: 'date-range'; value: string }
-  | { type: 'tagged'; tag: string; value: StackValue };
+  | { type: typeof StackValueType.TEXT; value: string }
+  | { type: typeof StackValueType.CONJUNCTION; value: StackValue[] }
+  | { type: typeof StackValueType.DISJUNCTION; value: StackValue[] }
+  | { type: typeof StackValueType.NEGATION; value: StackValue }
+  | { type: typeof StackValueType.DATE_RANGE; value: string }
+  | { type: typeof StackValueType.TAGGED; tag: string; value: StackValue };
+
+function text(value: string): StackValue {
+  return { type: StackValueType.TEXT, value };
+}
+
+function conjunction(value: StackValue[]): StackValue {
+  return { type: StackValueType.CONJUNCTION, value };
+}
+
+function disjunction(value: StackValue[]): StackValue {
+  return { type: StackValueType.DISJUNCTION, value };
+}
+
+function negation(value: StackValue): StackValue {
+  return { type: StackValueType.NEGATION, value };
+}
+
+function dateRange(value: string): StackValue {
+  return { type: StackValueType.DATE_RANGE, value };
+}
+
+function tagged(tag: string, value: StackValue): StackValue {
+  return { type: StackValueType.TAGGED, tag, value };
+}
 
 function tagWith(v: StackValue, tag: string): StackValue {
-  if (v.type === 'tagged') {
+  if (v.type === StackValueType.TAGGED) {
     if (v.tag === 'type' || v.tag === 'color') {
       // we just erase 'type' and 'color'
-      return { type: 'tagged', tag, value: v.value };
+      return tagged(tag, v.value);
     }
 
-    return {
-      type: 'conjunct',
-      value: [
-        { type: 'tagged', tag, value: { type: 'text', value: v.tag } },
-        { type: 'tagged', tag, value: v.value },
-      ],
-    };
+    return conjunction([tagged(tag, text(v.tag)), tagged(tag, v.value)]);
   }
 
-  if (v.type === 'negation') {
-    return { type: 'negation', value: tagWith(v.value, tag) };
+  if (v.type === StackValueType.NEGATION) {
+    return negation(tagWith(v.value, tag));
   }
 
-  if (v.type === 'conjunct') {
-    return { type: 'conjunct', value: v.value.map((_) => tagWith(_, tag)) };
+  if (v.type === StackValueType.CONJUNCTION) {
+    return conjunction(v.value.map((_) => tagWith(_, tag)));
   }
 
-  if (v.type === 'disjunct') {
-    return { type: 'disjunct', value: v.value.map((_) => tagWith(_, tag)) };
+  if (v.type === StackValueType.DISJUNCTION) {
+    return disjunction(v.value.map((_) => tagWith(_, tag)));
   }
 
-  return { type: 'tagged', tag, value: v };
+  if (v.type === StackValueType.DATE_RANGE) {
+    // we can't tag a date range so we just drop the tag silently
+    return v;
+  }
+
+  return tagged(tag, v);
 }
 
 export function compile(input: string) {
@@ -252,7 +276,7 @@ export function compile(input: string) {
         }
 
         let top = stack.pop()!;
-        stack.push({ type: 'negation', value: top });
+        stack.push(negation(top));
         break;
       }
 
@@ -263,7 +287,7 @@ export function compile(input: string) {
 
         let inner = stack.slice();
         stack.splice(0, stack.length);
-        stack.push({ type: 'conjunct', value: inner });
+        stack.push(conjunction(inner));
         break;
       }
 
@@ -274,7 +298,7 @@ export function compile(input: string) {
 
         let inner = stack.slice();
         stack.splice(0, stack.length);
-        stack.push({ type: 'disjunct', value: inner });
+        stack.push(disjunction(inner));
         break;
       }
 
@@ -285,16 +309,13 @@ export function compile(input: string) {
 
         let inner = stack.slice();
         stack.splice(0, stack.length);
-        stack.push({
-          type: 'negation',
-          value: { type: 'disjunct', value: inner },
-        });
+        stack.push(negation(disjunction(inner)));
         break;
       }
 
       case TokenType.OPERATOR__ART_TAG: {
         if (stack.length === 0) {
-          stack.push({ type: 'text', value: 'art' });
+          stack.push(text('art'));
           break;
         }
 
@@ -305,7 +326,7 @@ export function compile(input: string) {
 
       case TokenType.OPERATOR__ARTIST: {
         if (stack.length === 0) {
-          stack.push({ type: 'text', value: 'artist' });
+          stack.push(text('artist'));
           break;
         }
 
@@ -316,7 +337,7 @@ export function compile(input: string) {
 
       case TokenType.OPERATOR__ORACLE_TEXT: {
         if (stack.length === 0) {
-          stack.push({ type: 'text', value: 'oracle' });
+          stack.push(text('oracle'));
           break;
         }
 
@@ -326,54 +347,39 @@ export function compile(input: string) {
       }
 
       case TokenType.TEXT: {
-        stack.push({ type: 'text', value: token.value });
+        stack.push(text(token.value));
         break;
       }
 
       case TokenType.DATE_RANGE__TO: {
-        stack.push({ type: 'date-range', value: `year<=${token.end}` });
+        stack.push(dateRange(`year<=${token.end}`));
         break;
       }
 
       case TokenType.DATE_RANGE__FROM: {
-        stack.push({ type: 'date-range', value: `year>=${token.start}` });
+        stack.push(dateRange(`year>=${token.start}`));
         break;
       }
 
       case TokenType.DATE_RANGE__BETWEEN: {
-        stack.push({
-          type: 'date-range',
-          value: `(year>=${token.start} year<=${token.end})`,
-        });
+        stack.push(dateRange(`(year>=${token.start} year<=${token.end})`));
         break;
       }
 
       case TokenType.EMOJI: {
         let found;
         if ((found = toCreatureType(token.value))) {
-          stack.push({
-            type: 'tagged',
-            tag: 'type',
-            value: { type: 'text', value: found },
-          });
+          stack.push(tagged('type', text(found)));
           break;
         }
 
         if ((found = toColor(token.value))) {
-          stack.push({
-            type: 'tagged',
-            tag: 'color',
-            value: { type: 'text', value: found },
-          });
+          stack.push(tagged('color', text(found)));
           break;
         }
 
         if ((found = toOracleWord(token.value))) {
-          stack.push({
-            type: 'tagged',
-            tag: 'oracle',
-            value: { type: 'text', value: found },
-          });
+          stack.push(tagged('oracle', text(found)));
         }
         break;
       }
@@ -388,27 +394,26 @@ function stringify(stack: Array<StackValue>): string {
 
 function stringifyValue(item: StackValue): string {
   switch (item.type) {
-    case 'text':
-      // TODO: quote if necessary
+    case StackValueType.TEXT:
       return item.value;
 
-    case 'conjunct':
+    case StackValueType.CONJUNCTION:
       return `(${item.value.map(stringifyValue).toReversed().join(' ')})`;
 
-    case 'disjunct':
+    case StackValueType.DISJUNCTION:
       return `(${item.value.map(stringifyValue).toReversed().join(' OR ')})`;
 
-    case 'tagged':
+    case StackValueType.TAGGED:
       if (item.tag === 'oracle') {
         return `fo:${stringifyValue(item.value)}`;
       }
 
       return `${item.tag}:${stringifyValue(item.value)}`;
 
-    case 'date-range':
+    case StackValueType.DATE_RANGE:
       return `${item.value}`;
 
-    case 'negation':
+    case StackValueType.NEGATION:
       return `-${stringifyValue(item.value)}`;
   }
 }
