@@ -34,13 +34,21 @@ for (const card of oracle) {
   }
 }
 
+const presets = new Map();
+presets.set('⭕', 'circle');
+const presetWords = new Set(presets.values());
+
 const emojiToOracle = new Map();
 const oracleToEmoji = new Map();
 
 for (const [k, v] of Object.entries(u)) {
+  if (presets.has(k)) {
+    continue;
+  }
+
   const names = v.name.toLocaleLowerCase();
   for (const o of names.split(' ')) {
-    if (!words.has(o)) {
+    if (!words.has(o) || presetWords.has(o)) {
       continue;
     }
 
@@ -91,7 +99,15 @@ for (const [emoji, words] of emojiToOracle.entries()) {
 const creatureTypes = new Set(types.data.map((_) => _.toLocaleLowerCase()));
 const final = new Map();
 const creatures = new Map();
+
+// I'm just going to hard code all of the colors
 const colors = new Map();
+colors.set('⚪', 'white');
+colors.set('🔵', 'blue');
+colors.set('⚫', 'black');
+colors.set('🔴', 'red');
+colors.set('🟢', 'green');
+
 for (const [k, v] of step2.entries()) {
   if (creatureTypes.has(k)) {
     creatures.set(v, k);
@@ -99,27 +115,30 @@ for (const [k, v] of step2.entries()) {
   }
 
   if (['white', 'blue', 'black', 'red', 'green'].includes(k)) {
-    colors.set(v, k);
     continue;
   }
 
   final.set(v, k);
 }
 
+for (const [k, v] of presets.entries()) {
+  final.set(k, v);
+}
+
 await fs.writeFile(
-  '../src/data/creature-tokens.json',
+  './src/data/creature-tokens.json',
   JSON.stringify(Object.fromEntries(creatures), null, 2),
   'utf8',
 );
 
 await fs.writeFile(
-  '../src/data/color-tokens.json',
+  './src/data/color-tokens.json',
   JSON.stringify(Object.fromEntries(colors), null, 2),
   'utf8',
 );
 
 await fs.writeFile(
-  '../src/data/word-tokens.json',
+  './src/data/word-tokens.json',
   JSON.stringify(Object.fromEntries(final), null, 2),
   'utf8',
 );

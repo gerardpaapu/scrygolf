@@ -16,12 +16,19 @@ each emoji grapheme is an individual token and so are specific characters like '
 
 we have a pre-built vocabulary of emoji that are mapped to words that appear in card titles, type lines and oracle text. This avoids accessing large data sets at runtime.
 
-A subset of those words that are creature types are automatically converted to `(type:${name})` so that the goblin emoji can be used to search for cards with the 
+A subset of those words that are creature types are automatically converted to `type:${name}` so that the goblin emoji can be used to search for cards with the type goblin.
 
-A smaller subset of those words map to color names and automatically converted to `(color:${name})`.
+A smaller subset of those words map to color names and automatically converted to `color:${name}`.
+
+## empty stack behaviour
+
+Operators applied to an empty stack have safe defaults rather than crashing:
+
+- `negate` (`!`), `conjoin` (`.`), `disjoin` (`|`), and `conjoin-negations` (`👎`) are **no-ops** — they leave the stack unchanged.
+- `art` (`🖼️`), `artist` (`👨‍🎨`), and `oracle-text` (`🔮`) push the bare field name (`art`, `artist`, `oracle`) onto the stack as a plain string, so they can still be chained with subsequent tokens.
 
 ## unwrapping
 
 Some operators want to take plain-words off the stack, e.g. `art` or 🖼️ wants to take a plain word off the stack and emit `(art:${word})`, but many of our emoji will be automatically mapped to creature types or some other type of query. 
 
-We introduce the idea of unwrapping a stack item like `(type:bear)` to recover the original word `bear`.
+We introduce the idea of unwrapping a stack item like `type:bear` to recover the original word `bear`.

@@ -5,11 +5,19 @@
   "license": "ISC",
   "author": "",
   "type": "module",
-  "main": "dist/index.js",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "scripts": {
     "test": "vitest",
-    "download-scryfall-data": "node ./scripts/download-scryfall-data.js",
-    "build-local-dataset": "node ./scripts/build-local-dataset.js"
+    "prepare": "tsc",
+    "download-scryfall-data": "node ./scripts/download-scryfall-data.mjs",
+    "build-local-dataset": "node ./scripts/build-local-dataset.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -39,6 +39,8 @@ const TokenType = {
   OPERATOR__DISJOIN: 8,
   OPERATOR__CONJOIN_NEGATIONS: 9,
   OPERATOR__ART_TAG: 10,
+  OPERATOR__ARTIST: 11,
+  OPERATOR__ORACLE_TEXT: 12,
 } as const;
 
 type TokenType = (typeof TokenType)[keyof typeof TokenType];
@@ -63,7 +65,9 @@ type Token =
         | typeof TokenType.OPERATOR__CONJOIN
         | typeof TokenType.OPERATOR__DISJOIN
         | typeof TokenType.OPERATOR__NEGATE
-        | typeof TokenType.OPERATOR__ART_TAG;
+        | typeof TokenType.OPERATOR__ART_TAG
+        | typeof TokenType.OPERATOR__ARTIST
+        | typeof TokenType.OPERATOR__ORACLE_TEXT;
     }
   | {
       type: typeof TokenType.EMOJI | typeof TokenType.TEXT;
@@ -71,7 +75,7 @@ type Token =
     };
 
 function isWhitespace(ch: string) {
-  return ch === ' ' || ch === '\n' || ch === '\r' || ch === '\t' || ch === '\h';
+  return ch === ' ' || ch === '\n' || ch === '\r' || ch === '\t';
 }
 
 function tokenize(source: string): Array<Token> {
@@ -162,6 +166,18 @@ function tokenize(source: string): Array<Token> {
         continue;
       }
 
+      if (segments[i] === '👨‍🎨') {
+        tokens.push({ type: TokenType.OPERATOR__ARTIST });
+        i++;
+        continue;
+      }
+
+      if (segments[i] === '🔮') {
+        tokens.push({ type: TokenType.OPERATOR__ORACLE_TEXT });
+        i++;
+        continue;
+      }
+
       tokens.push({ type: TokenType.EMOJI, value: segments[i]! });
       i++;
     }
@@ -169,97 +185,230 @@ function tokenize(source: string): Array<Token> {
 
   return tokens;
 }
-const emojiRegex = /^\p{Extended_Pictographic}|\p{Emoji_Presentation}/u;
+const emojiRegex = /^(?:\p{Extended_Pictographic}|\p{Emoji_Presentation})/u;
 function isEmoji(grapheme: string) {
   // \p{Extended_Pictographic} captures standard emojis,
   // complex emoji sequences (like families/flags), and objects.
   return emojiRegex.test(grapheme);
 }
 
-function unwrap(item: string) {
-  if (item.startsWith('type:')) {
-    return item.slice('type:'.length);
+const TagType = {
+  TAG_ART: 1,
+  TAG_ARTIST: 2,
+  TAG_ORACLE: 3,
+  TAG_TYPE: 4,
+  TAG_COLOR: 5,
+} as const;
+
+type TagType = (typeof TagType)[keyof typeof TagType];
+
+type StackValue =
+  | { type: 'text'; value: string }
+  | { type: 'conjunct'; value: StackValue[] }
+  | { type: 'disjunct'; value: StackValue[] }
+  | { type: 'negation'; value: StackValue }
+  | { type: 'date-range'; value: string }
+  | { type: 'tagged'; tag: string; value: StackValue };
+
+function tagWith(v: StackValue, tag: string): StackValue {
+  if (v.type === 'tagged') {
+    if (v.tag === 'type' || v.tag === 'color') {
+      // we just erase 'type' and 'color'
+      return { type: 'tagged', tag, value: v.value };
+    }
+
+    return {
+      type: 'conjunct',
+      value: [
+        { type: 'tagged', tag, value: { type: 'text', value: v.tag } },
+        { type: 'tagged', tag, value: v.value },
+      ],
+    };
   }
 
-  return item;
+  if (v.type === 'negation') {
+    return { type: 'negation', value: tagWith(v.value, tag) };
+  }
+
+  if (v.type === 'conjunct') {
+    return { type: 'conjunct', value: v.value.map((_) => tagWith(_, tag)) };
+  }
+
+  if (v.type === 'disjunct') {
+    return { type: 'disjunct', value: v.value.map((_) => tagWith(_, tag)) };
+  }
+
+  return { type: 'tagged', tag, value: v };
 }
 
 export function compile(input: string) {
   const tokens = tokenize(input);
-  const stack = [] as Array<string>;
+  const stack = [] as Array<StackValue>;
   for (const token of tokens) {
     switch (token.type) {
       case TokenType.OPERATOR__NEGATE: {
-        let top = stack.pop();
-        stack.push(`-(${top})`);
+        if (stack.length == 0) {
+          break;
+        }
+
+        let top = stack.pop()!;
+        stack.push({ type: 'negation', value: top });
         break;
       }
 
       case TokenType.OPERATOR__CONJOIN: {
-        let inner = stack.reverse().join(' ');
+        if (stack.length === 0) {
+          break;
+        }
+
+        let inner = stack.slice();
         stack.splice(0, stack.length);
-        stack.push(`(${inner})`);
+        stack.push({ type: 'conjunct', value: inner });
         break;
       }
 
       case TokenType.OPERATOR__DISJOIN: {
-        let inner = stack.reverse().join(' OR ');
+        if (stack.length === 0) {
+          break;
+        }
+
+        let inner = stack.slice();
         stack.splice(0, stack.length);
-        stack.push(`(${inner})`);
+        stack.push({ type: 'disjunct', value: inner });
         break;
       }
 
       case TokenType.OPERATOR__CONJOIN_NEGATIONS: {
-        let inner = stack.reverse().join(' OR ');
+        if (stack.length === 0) {
+          break;
+        }
+
+        let inner = stack.slice();
         stack.splice(0, stack.length);
-        stack.push(`-(${inner})`);
+        stack.push({
+          type: 'negation',
+          value: { type: 'disjunct', value: inner },
+        });
         break;
       }
 
       case TokenType.OPERATOR__ART_TAG: {
-        let inner = unwrap(stack.pop()!);
-        stack.push(`art:${inner}`);
+        if (stack.length === 0) {
+          stack.push({ type: 'text', value: 'art' });
+          break;
+        }
+
+        let result = tagWith(stack.pop()!, 'art');
+        stack.push(result);
+        break;
+      }
+
+      case TokenType.OPERATOR__ARTIST: {
+        if (stack.length === 0) {
+          stack.push({ type: 'text', value: 'artist' });
+          break;
+        }
+
+        let result = tagWith(stack.pop()!, 'artist');
+        stack.push(result);
+        break;
+      }
+
+      case TokenType.OPERATOR__ORACLE_TEXT: {
+        if (stack.length === 0) {
+          stack.push({ type: 'text', value: 'oracle' });
+          break;
+        }
+
+        let result = tagWith(stack.pop()!, 'oracle');
+        stack.push(result);
         break;
       }
 
       case TokenType.TEXT: {
-        stack.push(token.value);
+        stack.push({ type: 'text', value: token.value });
         break;
       }
 
       case TokenType.DATE_RANGE__TO: {
-        stack.push(`year<=${token.end}`);
+        stack.push({ type: 'date-range', value: `year<=${token.end}` });
         break;
       }
 
       case TokenType.DATE_RANGE__FROM: {
-        stack.push(`year>=${token.start}`);
+        stack.push({ type: 'date-range', value: `year>=${token.start}` });
         break;
       }
 
       case TokenType.DATE_RANGE__BETWEEN: {
-        stack.push(`(year>=${token.start} date<=${token.end})`);
+        stack.push({
+          type: 'date-range',
+          value: `(year>=${token.start} year<=${token.end})`,
+        });
         break;
       }
 
       case TokenType.EMOJI: {
         let found;
         if ((found = toCreatureType(token.value))) {
-          stack.push(`type:${found}`);
+          stack.push({
+            type: 'tagged',
+            tag: 'type',
+            value: { type: 'text', value: found },
+          });
           break;
         }
 
         if ((found = toColor(token.value))) {
-          stack.push(`color:${found}`);
+          stack.push({
+            type: 'tagged',
+            tag: 'color',
+            value: { type: 'text', value: found },
+          });
           break;
         }
 
         if ((found = toOracleWord(token.value))) {
-          stack.push(found);
+          stack.push({
+            type: 'tagged',
+            tag: 'oracle',
+            value: { type: 'text', value: found },
+          });
         }
         break;
       }
     }
   }
-  return stack.join(' ');
+  return stringify(stack);
+}
+
+function stringify(stack: Array<StackValue>): string {
+  return stack.map(stringifyValue).join(' ');
+}
+
+function stringifyValue(item: StackValue): string {
+  switch (item.type) {
+    case 'text':
+      // TODO: quote if necessary
+      return item.value;
+
+    case 'conjunct':
+      return `(${item.value.map(stringifyValue).toReversed().join(' ')})`;
+
+    case 'disjunct':
+      return `(${item.value.map(stringifyValue).toReversed().join(' OR ')})`;
+
+    case 'tagged':
+      if (item.tag === 'oracle') {
+        return `fo:${stringifyValue(item.value)}`;
+      }
+
+      return `${item.tag}:${stringifyValue(item.value)}`;
+
+    case 'date-range':
+      return `${item.value}`;
+
+    case 'negation':
+      return `-${stringifyValue(item.value)}`;
+  }
 }
