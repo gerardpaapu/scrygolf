@@ -188,37 +188,28 @@ Empty stack: pushes the bare string `oracle`.
 
 ---
 
-## Unwrapping
+## Tag replacement
 
-The art, artist, and oracle-text operators need a plain word, but emoji often produce prefixed values like `type:bear` or `color:green`. **Unwrapping** strips known prefixes:
+The art, artist, and oracle-text operators need a plain word, but emoji often produce prefixed values like `type:bear` or `color:green`
 
-| Stack value | Unwrapped to |
-|-------------|--------------|
-| `type:bear` | `bear` |
-| `color:green` | `green` |
-| `fo:bear` | `"oracle bear"` (quoted phrase) |
-| anything else with `:` | `"prefix value"` (quoted phrase) |
-| plain word | unchanged |
-
-This means you can use creature or color emoji directly with art/artist/oracle operators:
+These operators overwrite the tag "type" or "color". This means you can use creature or color emoji directly with art/artist/oracle operators.
 
 ```
-🐻🖼️         →  art:bear         (type:bear unwrapped to bear)
-🟢🖼️         →  art:green        (color:green unwrapped to green)
-🐻🔮🖼️       →  art:"oracle bear" (fo:bear unwrapped to "oracle bear")
-🐻🖼️🖼️       →  art:"art bear"   (art:bear unwrapped to "art bear")
+🐻🖼️         →  art:bear  ("type" is replaced with "art")
+🟢🖼️         →  art:green  ("color" is replaced with "art")
+```
+
+When replacing tags other than "art" and "color", i.e. explicit tags. Instead the tag is expanded into a conjunction with the name of the tag so that you can use it as though it is the plain text name.
+
+```
+🐻🔮    →  fo:bear
+🐻🔮🖼️  → (art:bear art:oracle) 
+🐻🖼️🖼️  → (art:bear art:art)
 ```
 
 ---
 
 ## Combining operators
-
-Because operators consume the whole stack or just the top item, you can build complex queries by ordering tokens carefully.
-
-**All wolves or bears, excluding either color:**
-```
-🟢⚪👎🐻🐺|   → -(color:green OR color:white) (type:bear OR type:wolf) 
-```
 
 **Green or white wolves printed before 2010:**
 ```
@@ -244,3 +235,17 @@ Because operators consume the whole stack or just the top item, you can build co
 ```
 🐲93-99        →  type:dragon (year>=1993 year<=1999)
 ```
+
+## Distribution
+
+Some tag operations distribute over conjunctions, disjunctions and negations, and this interacts with tag replacement.
+
+`🐻🐺👺|`  compiles to (type:bear OR type:wolf OR type:goblin) so any creature with the type bear or type wolf.
+
+`🐻🐺👺|🖼️`  compiles to (art:bear OR art:wolf OR art:goblin) so any card with a bear, wolf or goblin featured in the artwork.
+
+The same tag functions also distribute into negations.
+
+`🐻🐺👺👎` compiles to -(type:bear type:wolf type:goblin) any card without those creature types.
+
+`🐻🐺👺👎🖼️` compiles to -(art:bear OR art:wolf OR art:goblin), any card without those things featured in the artwork.
